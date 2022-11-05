@@ -66,8 +66,11 @@ public class PersonController : MonoBehaviour
                 radius: controller.AIValues.WarningCheckRadius,
                 layerMask: LayerMask.NameToLayer("Warning")))
             {
-                if(col.TryGetComponent(out WarningArea WA))
+                print("warning");
+
+                if (col.TryGetComponent(out WarningArea WA))
                 {
+                    print("warning");
                     warnignArea = WA;
                     return true;
                 }
