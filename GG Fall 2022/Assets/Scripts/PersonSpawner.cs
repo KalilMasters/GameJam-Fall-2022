@@ -8,9 +8,11 @@ public class PersonSpawner : MonoBehaviour
     [SerializeField] private SpawnArea spawnArea;
     [SerializeField] private float timeBetweenPersonSpawns;
     [SerializeField] private float minSpawns, maxSpawns;
+    Color[] peopleColors;
 
     private void Awake()
     {
+        peopleColors = new Color[] { Color.red, Color.blue, Color.yellow, Color.magenta};
         StartCoroutine(SpawnPersons());
     }
     IEnumerator SpawnPersons()
@@ -29,5 +31,6 @@ public class PersonSpawner : MonoBehaviour
     private void SpawnRandomPerson()
     {
         PersonController newPerson = Instantiate(personPrefab, spawnArea.GetRandomPositionInBounds(), Quaternion.identity, transform);
+        newPerson.Init(peopleColors[Random.Range(0, 4)]);
     }
 }

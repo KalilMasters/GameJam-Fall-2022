@@ -10,17 +10,27 @@ public class PersonController : MonoBehaviour
 {
     public PersonAIValues AIValues;
     public NavMeshAgent Agent;
-    public PersonAIState CurrentAIState, RandomMoveState = new PersonRandomRunState(), RunAwayState = new PersonRunFromWarningState(), IdleState = new PersonIdleState();
+    public PersonAIState CurrentAIState, 
+        RandomMoveState = new PersonRandomRunState(), 
+        RunAwayState = new PersonRunFromWarningState(), 
+        IdleState = new PersonIdleState(),
+        SavedState = new SavedPersonState();
     public string StateName;
     public Vector3 CurrentDestination;
+    Renderer visual;
+    public Color myColor;
     private void Update()
     {
-        Agent.speed = AIValues.AISpeed;
         CurrentAIState?.UpdateState();
         StateName = CurrentAIState.ToString();
     }
+    public void ToggleRunningState(bool active)
+    {
+        SwitchState(active ? RunAwayState : RandomMoveState);
+    }
     public void SwitchState(PersonAIState newState)
     {
+        if (CurrentAIState == SavedState) return;
         CurrentAIState?.ExitState();
         CurrentAIState = newState;
         CurrentAIState?.EnterState(this);
@@ -30,52 +40,57 @@ public class PersonController : MonoBehaviour
         CurrentDestination = destination;
         Agent.SetDestination(destination);
     }
+    public void Init(Color myColor)
+    {
+        visual.material.color = this.myColor = myColor;
+    }
+    public void SavePerson(Vector3 SavedLocation)
+    {
+        SwitchState(SavedState);
+        SetDestination(SavedLocation);
+    }
     private void Awake()
     {
         Agent = GetComponent<NavMeshAgent>();
+        visual = GetComponent<Renderer>();
         SwitchState(RandomMoveState);
     }
-    public class PersonRunFromWarningState : PersonAIState
+    public class SavedPersonState : PersonAIState
     {
-        WarningArea warnignArea;
         public override void EnterState(PersonController Controller)
         {
             base.EnterState(Controller);
         }
         public override void UpdateState()
         {
-            float distanceToArea = Vector3.Distance(controller.transform.position, warnignArea.transform.position);
-            if (distanceToArea > warnignArea.Radius)
+            if(controller.Agent.remainingDistance < 0.5f)
             {
-                controller.SwitchState(controller.RandomMoveState);
-                return;
+                GameObject.Destroy(controller.gameObject);
             }
-            Vector3 runAwayDirection = controller.transform.position - warnignArea.transform.position;
-            runAwayDirection.Normalize();
-            controller.SetDestination(runAwayDirection * controller.AIValues.ChangeDirectionDistance);
         }
         public override void ExitState()
         {
-            throw new System.NotImplementedException();
+            
         }
-        public override bool CheckCanSwitch(PersonController Controller)
+    }
+    public class PersonRunFromWarningState : PersonAIState
+    {
+        WarningArea warningArea;
+        public override void EnterState(PersonController Controller)
         {
-            base.CheckCanSwitch(Controller);
-            foreach(Collider col in Physics.OverlapSphere(
-                position: controller.transform.position,
-                radius: controller.AIValues.WarningCheckRadius,
-                layerMask: LayerMask.NameToLayer("Warning")))
-            {
-                print("warning");
-
-                if (col.TryGetComponent(out WarningArea WA))
-                {
-                    print("warning");
-                    warnignArea = WA;
-                    return true;
-                }
-            }
-            return false;
+            base.EnterState(Controller);
+            warningArea = WarningArea.Instance;
+            controller.Agent.speed = controller.AIValues.AIRunSpeed;
+        }
+        public override void UpdateState()
+        {
+            Vector3 runAwayDirection = controller.transform.position - warningArea.transform.position;
+            runAwayDirection.Normalize();
+            controller.SetDestination(runAwayDirection * controller.AIValues.ChangeDirectionDistance + controller.transform.position);
+        }
+        public override void ExitState()
+        {
+            controller.Agent.speed = controller.AIValues.AIWalkSpeed;
         }
     }
     public class PersonRandomRunState : PersonAIState
@@ -86,6 +101,7 @@ public class PersonController : MonoBehaviour
             base.EnterState(Controller);
             timeBeforeIdle = controller.AIValues.TimeBeforeIdle * (Random.value + 0.5f);
             SetNewRandomPositionOnNavMesh(3);
+            Controller.Agent.speed = Controller.AIValues.AIWalkSpeed;
         }
         public override void UpdateState()
         {
